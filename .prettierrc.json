@@ -1,0 +1,6 @@
+{
+    "singleQuote": true,
+    "trailingCommaPHP": false,
+    "tabWidth": 4,
+    "semi": false
+}
