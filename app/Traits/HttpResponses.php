@@ -8,11 +8,13 @@ trait HttpResponses
     public function success(
         $data,
         $statusCode = 200,
-        $error = null
+        $error = null,
+        $withCount = false
     ): JsonResponse {
         return response()->json(
             [
                 'status' => 'Success!',
+                'results' => $withCount ? $data->count() : ($data ? 1 : 0),
                 'data' => $data,
                 'error' => $error
             ],

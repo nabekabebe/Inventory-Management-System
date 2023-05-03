@@ -26,17 +26,16 @@ class UpdateInventoryRequest extends FormRequest
     public function rules()
     {
         return [
-            'name' => 'max:255',
+            'name' => 'string|max:255',
+            'identifier' => 'required|max:255|unique:inventories',
+            'manufacturer' => 'string',
             'description' => 'string',
-            'quantity' => 'numeric',
             'barcode' => 'string|unique:inventories',
             'purchase_price' => $this->isManager() ? 'numeric' : 'missing',
             'sell_price' => $this->isManager() ? 'numeric' : 'missing',
             'category_id' =>
                 'nullable|exists:categories,id,owner_token,' .
-                $this->userToken(),
-            'warehouse_id' =>
-                'nullable|exists:warehouse,id,owner_token,' . $this->userToken()
+                $this->userToken()
         ];
     }
 }

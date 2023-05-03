@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Inventory;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -13,16 +12,12 @@ return new class extends Migration {
      */
     public function up()
     {
-        Schema::create('variations', function (Blueprint $table) {
+        Schema::create('categories', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->string('name')->unique();
+            $table->string('owner_token');
+            $table->index('owner_token');
             $table->timestamps();
-            $table->integer('quantity');
-            $table->string('size');
-            $table->json('color')->nullable();
-            $table
-                ->foreignUuid('inventory_id')
-                ->constrained()
-                ->cascadeOnDelete();
         });
     }
 
@@ -33,6 +28,6 @@ return new class extends Migration {
      */
     public function down()
     {
-        Schema::dropIfExists('variations');
+        Schema::dropIfExists('categories');
     }
 };

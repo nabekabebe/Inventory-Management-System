@@ -16,20 +16,20 @@ return new class extends Migration {
     public function up()
     {
         Schema::create('transfers', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->integer('quantity');
-            $table->timestamp('created_at');
+            $table->timestamps();
             $table->string('owner_token');
             $table
-                ->foreignIdFor(Inventory::class)
+                ->foreignUuid('inventory_id')
                 ->constrained()
                 ->cascadeOnDelete();
             $table
-                ->foreignId('source_id')
+                ->foreignUuid('source_id')
                 ->constrained('warehouses')
                 ->cascadeOnDelete();
             $table
-                ->foreignId('destination_id')
+                ->foreignUuid('destination_id')
                 ->constrained('warehouses')
                 ->cascadeOnDelete();
             $table->index('owner_token');

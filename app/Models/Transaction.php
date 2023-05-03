@@ -3,13 +3,15 @@
 namespace App\Models;
 
 use App\Traits\ApiFilter;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
 {
     use HasFactory, ApiFilter;
-    public $timestamps = false;
+    use HasUuids;
+
     protected $guarded = [];
     protected $hidden = ['owner_token', 'inventory_id', 'warehouse_id'];
 

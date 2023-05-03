@@ -12,26 +12,30 @@ use App\Models\Variation;
 use App\Models\WarehouseInfo;
 use App\Traits\AuthAccessControl;
 use App\Traits\HttpResponses;
-use Carbon\Carbon;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Str;
+use Symfony\Component\HttpFoundation\Response as ResponseAlias;
+use Validator;
 
 class InventoryController extends Controller
 {
     use HttpResponses;
     use AuthAccessControl;
     protected static string $NOT_FOUND = 'No inventory with this id';
+
     public function __construct()
     {
         $this->middleware(ManagerOnly::class)->except([
             'index',
             'show',
-            'lowOnStock'
+            'lowInStock'
         ]);
     }
-    private function getInventory(int $id)
+    private function getInventory(string $id)
     {
         return Inventory::where([
             'id' => $id,
@@ -46,18 +50,24 @@ class InventoryController extends Controller
     public function index()
     {
         return $this->success(
-            Inventory::with('category:id,name', 'stores')
-                ->withSum('stores as total_quantity', 'quantity')
-                //                ->where('owner_token', $this->userToken())
-                //                ->whereDate('created_at', '<=', Carbon::now()->subMonth())
+            Inventory::with('category:id,name')
+                ->withSum('records as count', 'quantity')
+                ->where('owner_token', $this->userToken())
                 ->filter(request(['limit', 'search', 'sort']), [
                     'name',
-                    'description'
+                    'identifier'
                 ])
-                ->extract(request(['sell_price', 'purchase_price', 'quantity']))
+                ->extract(request()->all(), [
+                    'sell_price',
+                    'purchase_price',
+                    'created_at',
+                    'created_from',
+                    'created_until'
+                ])
                 ->ByDate(request(['year']))
                 ->nestedExtract('category', 'name')
-                ->get()
+                ->get(),
+            withCount: true
         );
     }
 
@@ -69,25 +79,56 @@ class InventoryController extends Controller
      */
     public function store(StoreInventoryRequest $request)
     {
+        $file_path = $request->file('image')->getRealPath();
+        $imageUrl = '';
+        try {
+            $uploadedImage = Cloudinary::upload($file_path, [
+                'folder' => 'my_folder',
+                'upload_preset' => 'shrinkable'
+            ]);
+            $imageUrl = $uploadedImage->getSecurePath();
+        } catch (Exception $e) {
+            return $this->failure(
+                'Unable to upload the image to cloud',
+                Response::HTTP_BAD_GATEWAY
+            );
+        }
         $attributes = $request->validated();
-        $variations = $attributes['variation'];
+        $variations = json_decode($request['variation']);
+        $validator = Validator::make($variations, [
+            'variation.*.quantity' => 'numeric',
+            'variation.*.size' => 'string',
+            'variation.*.color' => 'json'
+        ]);
+        if ($validator->invalid()) {
+            return $this->failure(
+                'Invalid inventory variation array provided',
+                Response::HTTP_UNPROCESSABLE_ENTITY
+            );
+        }
         $warehouseId = $attributes['warehouse_id'];
         unset($attributes['warehouse_id']);
         unset($attributes['variation']);
         $inventory = Inventory::create([
             ...$attributes,
-            'identifier' => Str::slug($attributes['identifier']),
-            'created_at' => now(),
-            'owner_token' => $this->userToken()
+            'identifier' => Str::slug(
+                $attributes['name'] . ' ' . $attributes['barcode']
+            ),
+            'owner_token' => $this->userToken(),
+            'image' => $imageUrl
         ]);
+        $total_quantity = 0;
         foreach ($variations as $variation) {
+            $total_quantity += $variation->quantity;
             Variation::create([
-                ...$variation,
+                'quantity' => $variation->quantity,
+                'size' => $variation->size,
+                'color' => $variation->color,
                 'inventory_id' => $inventory->id
             ]);
         }
         WarehouseInfo::create([
-            'quantity' => $attributes['quantity'],
+            'quantity' => $total_quantity,
             'warehouse_id' => $warehouseId,
             'inventory_id' => $inventory->id
         ]);
@@ -97,13 +138,16 @@ class InventoryController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param int $id
+     * @param string $id
      * @return JsonResponse
      */
-    public function show(int $id)
+    public function show(string $id)
     {
         $inventory = $this->getInventory($id)
-            ->with('category:id,name', 'stores')
+            ->with('category:id,name', 'records.warehouse:id,name', 'variation')
+            ->withSum('records as total_sold', 'sell_count')
+            ->withSum('records as total_refunded', 'refund_count')
+            ->withSum('records as count', 'quantity')
             ->first();
         if (!$inventory) {
             return $this->failure(InventoryController::$NOT_FOUND);
@@ -116,10 +160,10 @@ class InventoryController extends Controller
      * Update the specified resource in storage.
      *
      * @param UpdateInventoryRequest $request
-     * @param int $id
+     * @param string $id
      * @return JsonResponse
      */
-    public function update(UpdateInventoryRequest $request, int $id)
+    public function update(UpdateInventoryRequest $request, string $id)
     {
         $attributes = $request->validated();
         $inventory = $this->getInventory($id)->first();
@@ -127,23 +171,30 @@ class InventoryController extends Controller
             return $this->failure(InventoryController::$NOT_FOUND);
         }
         $inventory->update($attributes);
-
         return $this->success($inventory);
     }
 
     /**
      * Remove the specified resource from storage.
      *
-     * @param int $id
+     * @param string $id
      * @return JsonResponse
      */
-    public function destroy(int $id)
+    public function destroy(string $id)
     {
         $inventory = $this->getInventory($id)->first();
         if (!$inventory) {
             return $this->failure(InventoryController::$NOT_FOUND);
         }
+        //        assert: This already deleted on cascade
+        //        $variations = Variation::where(['inventory_id' => $inventory->id]);
+        //        $variations->delete();
         $inventory->delete();
+        assert(
+            count(
+                Variation::where(['inventory_id' => $inventory->id])->get()
+            ) == 0
+        );
         return $this->success(null);
     }
     public function sell(SellInventoryRequest $request, $id)
@@ -156,16 +207,18 @@ class InventoryController extends Controller
         if (!$inventoryRecord) {
             return $this->failure(
                 'No inventory found in this warehouse',
-                Response::HTTP_BAD_REQUEST
+                ResponseAlias::HTTP_BAD_REQUEST
             );
         }
         if ($attributes['quantity'] > $inventoryRecord->quantity) {
             return $this->failure(
                 'Not enough inventories to sell from this warehouse!',
-                Response::HTTP_BAD_REQUEST
+                ResponseAlias::HTTP_BAD_REQUEST
             );
         }
         $inventoryRecord->decrement('quantity', $attributes['quantity']);
+        $inventoryRecord->increment('sell_count', $attributes['quantity']);
+
         $transaction = Transaction::create([
             ...$request->only(
                 'quantity',
@@ -175,7 +228,6 @@ class InventoryController extends Controller
             ),
             'inventory_id' => $id,
             'transaction_type' => Transaction::SOLD,
-            'created_at' => now(),
             'owner_token' => $this->userToken(),
             'user_id' => Auth()
                 ->user()
@@ -204,23 +256,42 @@ class InventoryController extends Controller
         ]);
 
         $inventoryRecord->increment('quantity', $transaction->quantity);
+        $inventoryRecord->increment('refund_count', $transaction->quantity);
+        $inventoryRecord->decrement('sell_count', $transaction->quantity);
         $transaction->update(['transaction_type' => Transaction::REFUNDED]);
 
         return $this->success($inventoryRecord);
     }
 
-    public function lowOnStock(Request $request)
+    public function lowInStock(Request $request)
     {
         $request->merge([
-            'sort' => 'total_quantity ASC',
             'select' => ['id', 'name', 'brand']
         ]);
         return $this->success(
             Inventory::where('owner_token', $this->userToken())
-                ->filter(request(['limit', 'sort', 'select']))
-                ->withSum('stores as total_quantity', 'quantity')
+                ->filter(request(['limit', 'select']))
+                ->withSum('records as remaining', 'quantity')
+                ->orderBy('remaining', 'asc')
                 ->get()
-                ->where('total_quantity', '<', 100)
+                ->where('remaining', '<=', $request->get('trigger') ?? 400),
+            withCount: true
+        );
+    }
+
+    /**
+     * Display a listing of the warehouses for inventory with given  id.
+     * @param string $id
+     * @return JsonResponse
+     */
+    public function getWarehouses(string $id)
+    {
+        return $this->success(
+            $this->getInventory($id)
+                ->select('id')
+                ->with('warehouse')
+                ->get(),
+            withCount: true
         );
     }
 }

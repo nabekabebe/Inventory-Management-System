@@ -22,7 +22,6 @@ class TransferFactory extends Factory
     {
         return [
             'quantity' => rand(1, 20),
-            'created_at' => now(),
             'inventory_id' => Inventory::all()->random()->id,
             'source_id' => Warehouse::all()->random()->id,
             'destination_id' => Warehouse::all()->random()->id,

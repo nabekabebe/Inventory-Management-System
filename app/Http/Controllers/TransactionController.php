@@ -21,7 +21,7 @@ class TransactionController extends Controller
     {
         $this->middleware(ManagerOnly::class)->except('index');
     }
-    private function getTransaction(int $id): Transaction
+    private function getTransaction(string $id)
     {
         return Transaction::where([
             'id' => $id,
@@ -36,30 +36,24 @@ class TransactionController extends Controller
     public function index()
     {
         $transactions = Transaction::with(
-            'inventory:id,name',
+            'inventory:id,name,sell_price,purchase_price',
             'warehouse:id,name',
             'committedBy:id,full_name'
         )
             ->where('owner_token', $this->userToken())
             ->filter(request(['limit', 'search', 'sort']))
-            ->get();
+            ->extract(request()->all(), [
+                'created_at',
+                'quantity',
+                'created_from',
+                'created_until'
+            ]);
 
         if (!$this->isManager()) {
             $transactions = $transactions->where('user_id', $this->userId());
         }
-
-        return $this->success($transactions);
-    }
-    public function getTransactions()
-    {
-        return Transaction::with(
-            'inventory:id,name',
-            'warehouse:id,name',
-            'committedBy:id,full_name'
-        )
-            ->where('owner_token', $this->userToken())
-            ->filter(request(['limit', 'search', 'sort']))
-            ->get();
+        $transactions = $transactions->get();
+        return $this->success($transactions, withCount: true);
     }
 
     /**
@@ -82,10 +76,10 @@ class TransactionController extends Controller
      * Update the specified resource in storage.
      *
      * @param Request $request
-     * @param int $id
+     * @param string $id
      * @return JsonResponse
      */
-    public function update(Request $request, int $id)
+    public function update(Request $request, string $id)
     {
         $attributes = $request->validate([
             'comment' => 'max:255',
@@ -103,10 +97,10 @@ class TransactionController extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @param int $id
+     * @param string $id
      * @return JsonResponse
      */
-    public function destroy(int $id)
+    public function destroy(string $id)
     {
         $transaction = $this->getTransaction($id)->first();
         if (!$transaction) {
@@ -118,12 +112,11 @@ class TransactionController extends Controller
     public function report(GetTransactionReport $request)
     {
         $attributes = $request->validated();
-        //        TODO: correct it to only fetch user related posts
         $transaction = Transaction::with(
-            'inventory:id,name,sell_price',
+            'inventory:id,sell_price,purchase_price',
             'warehouse:id,name',
             'committedBy:id,full_name'
-        )->where('transaction_type', '=', 'sold');
+        )->where('owner_token', $this->userToken());
         switch ($attributes['report_type']) {
             case 'weekly':
                 $transaction = $this->generate_weekly_report(
@@ -149,12 +142,25 @@ class TransactionController extends Controller
 
     private function generate_weekly_report($attributes, $transaction)
     {
+        //        if (!isset($attributes['week'])) {
+        //            $transaction = $transaction
+        //                ->whereYear(
+        //                    'created_at',
+        //                    '=',
+        //                    $attributes['year'] ?? now()->year
+        //                )
+        //                ->whereMonth(
+        //                    'created_at',
+        //                    '=',
+        //                    $attributes['month'] ?? now()->month
+        //                );
+        //        } else {
         $targetDate = Carbon::create(
             year: $attributes['year'] ?? now()->year,
             month: $attributes['month'] ?? now()->month,
             day: 7 * $attributes['week']
         );
-        return $transaction
+        $transaction = $transaction
             ->whereDate(
                 'created_at',
                 '>=',
@@ -164,11 +170,32 @@ class TransactionController extends Controller
                 'created_at',
                 '<=',
                 $targetDate->addDays(7)->toDateString()
-            )
-            ->get()
+            );
+        //        }
 
+        return $transaction
+            ->select([
+                'id',
+                'created_at',
+                'quantity',
+                'warehouse_id',
+                'inventory_id',
+                'user_id',
+                'transaction_type'
+            ])
+            ->get()
             ->groupBy(function ($val) {
+                //                if (!isset($attributes['week'])) {
                 return Carbon::parse($val->created_at)->format('D');
+                //                }
+                //                $weeks = ['WEEK_1', 'WEEK_2', 'WEEK_3', 'WEEK_4'];
+                //                $parsedDate = Carbon::parse($val->created_at);
+                //                for ($i = 1; $i <= 4; $i++) {
+                //                    if ($parsedDate->day >= $i && $parsedDate->day <= 7 * $i) {
+                //                        return $weeks[$i - 1];
+                //                    }
+                //                }
+                //                return $weeks[0];
             })
             ->sortBy(function ($group, $key) {
                 return $group->first()->created_at;
@@ -180,6 +207,15 @@ class TransactionController extends Controller
         return $transaction
             ->whereYear('created_at', '=', $attributes['year'] ?? now()->year)
             ->whereMonth('created_at', '=', $attributes['month'])
+            ->select([
+                'id',
+                'created_at',
+                'quantity',
+                'warehouse_id',
+                'inventory_id',
+                'user_id',
+                'transaction_type'
+            ])
             ->get()
             ->groupBy(function ($val) {
                 return Carbon::parse($val->created_at)->format('d');
@@ -194,6 +230,15 @@ class TransactionController extends Controller
     {
         return $transaction
             ->whereYear('created_at', '=', $attributes['year'])
+            ->select([
+                'id',
+                'created_at',
+                'quantity',
+                'warehouse_id',
+                'inventory_id',
+                'user_id',
+                'transaction_type'
+            ])
             ->get()
             ->groupBy(function ($val) {
                 return Carbon::parse($val->created_at)->format('M');

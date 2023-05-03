@@ -12,11 +12,8 @@ return new class extends Migration {
      */
     public function up()
     {
-        Schema::create('categories', function (Blueprint $table) {
-            $table->id();
-            $table->string('name')->unique();
-            $table->string('owner_token');
-            $table->index('owner_token');
+        Schema::table('inventories', function (Blueprint $table) {
+            $table->string('image')->nullable();
         });
     }
 
@@ -27,6 +24,8 @@ return new class extends Migration {
      */
     public function down()
     {
-        Schema::dropIfExists('categories');
+        Schema::table('inventories', function (Blueprint $table) {
+            //
+        });
     }
 };

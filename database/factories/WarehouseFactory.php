@@ -22,7 +22,6 @@ class WarehouseFactory extends Factory
         return [
             'name' => fake()->word(),
             'address' => fake()->address(),
-            'created_at' => now(),
             'owner_token' => User::all()->random()->managing_token
         ];
     }

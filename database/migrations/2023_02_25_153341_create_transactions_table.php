@@ -17,24 +17,24 @@ return new class extends Migration {
     public function up()
     {
         Schema::create('transactions', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->integer('quantity');
-            $table->timestamp('created_at');
+            $table->timestamps();
             $table->string('comment')->nullable();
             $table->enum('payment_method', ['bank', 'cash'])->default('cash');
             $table->boolean('is_active')->default(true);
             $table->string('owner_token');
             $table->enum('transaction_type', ['sold', 'refunded']);
             $table
-                ->foreignIdFor(Inventory::class)
+                ->foreignUuid('warehouse_id')
                 ->constrained()
                 ->cascadeOnDelete();
             $table
-                ->foreignIdFor(Warehouse::class)
+                ->foreignUuid('inventory_id')
                 ->constrained()
                 ->cascadeOnDelete();
             $table
-                ->foreignIdFor(User::class)
+                ->foreignUuid('user_id')
                 ->constrained()
                 ->cascadeOnDelete();
             $table->index('owner_token');

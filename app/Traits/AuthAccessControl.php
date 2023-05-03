@@ -5,7 +5,7 @@ namespace App\Traits;
 trait AuthAccessControl
 {
     use HttpResponses;
-    public function isOwner($itemToken)
+    public function isOwner($itemToken): bool
     {
         return $this->userToken() == $itemToken;
     }
@@ -20,6 +20,6 @@ trait AuthAccessControl
     }
     private function isManager(): bool
     {
-        return Auth()->user()->isManager;
+        return Auth()->user()->is_manager;
     }
 }

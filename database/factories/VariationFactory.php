@@ -21,9 +21,9 @@ class VariationFactory extends Factory
         $size = ['S', 'M', 'L', 'XL', 'XXL'];
         return [
             'size' => $size[rand(0, 4)],
-            'color' => json_encode(['blue' => 4, 'red' => 5]),
+            'color' => json_encode(['blue' => rand(1, 4), 'red' => rand(1, 7)]),
             'quantity' => rand(1, 20),
-            'owner_token' => Inventory::all()->random()->id
+            'inventory_id' => Inventory::all()->random()->id
         ];
     }
 }

@@ -2,22 +2,25 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class WarehouseInfo extends Model
 {
     use HasFactory;
-    public $timestamps = false;
-    protected $guarded = [];
-    protected $fillable = ['warehouse_id', 'inventory_id', 'quantity'];
 
-    public function inventories()
+    use HasUuids;
+
+    protected $guarded = [];
+    protected $hidden = [];
+
+    public function inventory()
     {
-        return $this->hasMany(Inventory::class, 'inventory_id', 'id');
+        return $this->belongsTo(Inventory::class, 'inventory_id', 'id');
     }
-    public function warehouses()
+    public function warehouse()
     {
-        return $this->hasMany(Warehouse::class, 'warehouse_id', 'id');
+        return $this->belongsTo(Warehouse::class, 'warehouse_id', 'id');
     }
 }

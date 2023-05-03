@@ -18,7 +18,7 @@ class WarehouseController extends Controller
     {
         $this->middleware(ManagerOnly::class)->except(['index', 'show']);
     }
-    private function getWarehouse(int $id)
+    private function getWarehouse(string $id)
     {
         return Warehouse::where([
             'id' => $id,
@@ -33,10 +33,17 @@ class WarehouseController extends Controller
     public function index()
     {
         return $this->success(
-            Warehouse::withSum('inventories as total_inventories', 'quantity')
-                ->where('owner_token', $this->userToken())
+            Warehouse::where('owner_token', $this->userToken())
+                ->withSum('records as inventory_count', 'quantity')
+                ->withSum('records as total_sold', 'sell_count')
+                ->extract(request()->all(), [
+                    'created_at',
+                    'created_from',
+                    'created_until'
+                ])
                 ->filter(request(['limit', 'search', 'sort']), ['name'])
-                ->get()
+                ->get(),
+            withCount: true
         );
     }
 
@@ -52,23 +59,26 @@ class WarehouseController extends Controller
             'name' => 'required|string',
             'address' => 'required|string'
         ]);
-        $category = Warehouse::create([
+        $warehouse = Warehouse::create([
             ...$attributes,
             'owner_token' => $this->userToken()
         ]);
-        return $this->success($category, Response::HTTP_CREATED);
+        return $this->success($warehouse, Response::HTTP_CREATED);
     }
 
     /**
      * Display the specified resource.
      *
-     * @param  int  $id
+     * @param  string  $id
      * @return JsonResponse
      */
-    public function show($id)
+    public function show(string $id)
     {
         $warehouse = $this->getWarehouse($id)
-            ->with('inventories')
+            ->with('records.inventory:id,name')
+            ->withSum('records as total_sold', 'sell_count')
+            ->withSum('records as total_refunded', 'refund_count')
+            ->withSum('records as inventory_count', 'quantity')
             ->first();
         if (!$warehouse) {
             return $this->failure(WarehouseController::$NOT_FOUND);
@@ -81,10 +91,10 @@ class WarehouseController extends Controller
      * Update the specified resource in storage.
      *
      * @param Request $request
-     * @param  int  $id
+     * @param  string  $id
      * @return JsonResponse
      */
-    public function update(Request $request, int $id)
+    public function update(Request $request, string $id)
     {
         $attributes = $request->validate([
             'name' => 'max:255',
@@ -117,16 +127,31 @@ class WarehouseController extends Controller
     public function lowInWarehouse(Request $request)
     {
         $request->merge([
-            'sort' => 'total_inventories ASC',
             'select' => ['id', 'name']
         ]);
         return $this->success(
             Warehouse::where('owner_token', $this->userToken())
-                ->filter(request(['limit', 'sort', 'select']))
-                ->withSum('inventories as total_inventories', 'quantity')
-                ->withMax('inventories as min_inventory', 'quantity')
-                ->get()
-                ->where('total_inventories', '<', 100)
+                ->filter(request(['limit', 'select']))
+                ->withSum('records as remaining', 'quantity')
+                ->orderBy('remaining', 'asc')
+                ->get(),
+            withCount: true
+        );
+    }
+
+    /**
+     * Display a listing of the warehouses for inventory with given  id.
+     * @param string $id
+     * @return JsonResponse
+     */
+    public function getInventories(string $id)
+    {
+        return $this->success(
+            $this->getWarehouse($id)
+                ->select('id')
+                ->with('inventory')
+                ->get(),
+            withCount: true
         );
     }
 }

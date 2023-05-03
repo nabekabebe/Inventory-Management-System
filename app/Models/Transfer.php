@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\ApiFilter;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -10,8 +11,7 @@ class Transfer extends Model
 {
     use HasFactory, ApiFilter;
 
-    //    use HasUuids;
-    public $timestamps = false;
+    use HasUuids;
     protected $hidden = ['owner_token'];
     protected $guarded = [];
     public function inventories()

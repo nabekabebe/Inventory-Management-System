@@ -32,19 +32,28 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
     Route::get(
         '/inventories/low',
-        'App\Http\Controllers\InventoryController@lowOnStock'
+        'App\Http\Controllers\InventoryController@lowInStock'
     );
 
     Route::resource('/inventories', InventoryController::class);
+
     Route::post(
         '/inventories/{id}/refund/{transactionId}',
         'App\Http\Controllers\InventoryController@refund'
+    );
+    Route::get(
+        '/inventories/{id}/warehouses',
+        'App\Http\Controllers\InventoryController@getWarehouses'
     );
     Route::post(
         '/inventories/{id}/sell',
         'App\Http\Controllers\InventoryController@sell'
     );
     Route::resource('/categories', CategoryController::class);
+    Route::get(
+        '/warehouses/{id}/inventories',
+        'App\Http\Controllers\WarehouseController@getInventories'
+    );
     Route::get(
         '/warehouses/low',
         'App\Http\Controllers\WarehouseController@lowInWarehouse'

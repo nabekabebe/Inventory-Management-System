@@ -1,6 +1,7 @@
 <?php
 namespace App\Traits;
 
+use function PHPUnit\Framework\isEmpty;
 trait ApiFilter
 {
     public function scopeFilter(
@@ -8,12 +9,18 @@ trait ApiFilter
         array $filters,
         array $searchFields = []
     ) {
-        $this->page($query, $filters['limit'] ?? 4);
+        $this->page($query, $filters['limit'] ?? 100);
         $query->when($filters['search'] ?? null, function ($query, $term) use (
             $searchFields
         ) {
-            foreach ($searchFields as $s) {
-                $query->where($s, 'like', '%' . $term . '%');
+            $count = 0;
+            foreach ($searchFields as $column) {
+                if ($count == 0) {
+                    $query->where($column, 'like', $term . '%');
+                } else {
+                    $query->orWhere($column, 'like', $term . '%');
+                }
+                $count++;
             }
         });
         $query->when(
@@ -21,7 +28,7 @@ trait ApiFilter
             fn($query, $fields) => $query->select($fields)
         );
         $query->when(
-            $filters['sort'] ?? 'id',
+            $filters['sort'] ?? 'created_at DESC',
             fn($query, $order) => $query->OrderByRaw($order)
         );
     }
@@ -45,20 +52,29 @@ trait ApiFilter
             )
         );
     }
-    public function scopeExtract($query, array $filters)
+    public function scopeExtract($query, array $filters, array $allowedFields)
     {
-        //        TODO: must implement validation check for the allowed operators!
-        //             request()->validated(['purchase_price' => 'alpha'])
         foreach ($filters as $filter => $value) {
+            if (
+                !in_array($filter, $allowedFields) ||
+                !str_contains($value, ',')
+            ) {
+                continue;
+            }
+            if ($filter == 'created_from' || $filter == 'created_until') {
+                $filter = 'created_at';
+            }
             [$op, $arg] = explode(',', $value);
             $query->where($filter, $op, $arg);
         }
     }
     public function scopeByDate($query, array $filters)
     {
-        foreach ($filters as $filter => $value) {
-            [$op, $arg] = explode(',', $value);
-            $query->whereDate('created_at', $op, $arg);
+        if (!isEmpty($filters)) {
+            foreach ($filters as $filter => $value) {
+                [$op, $arg] = explode(',', $value);
+                $query->whereDate('created_at', $op, $arg);
+            }
         }
     }
 }

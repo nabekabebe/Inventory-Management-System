@@ -25,11 +25,12 @@ class GetTransactionReport extends FormRequest
     {
         return [
             'year' =>
-                'required_if:report_type,annually|numeric|before_or_equal:' .
+                'required_if:report_type,annually|nullable|numeric|before_or_equal:' .
                 now()->year,
-            'month' => 'required_if:report_type,monthly|numeric|gte:1|lte:12',
-            'week' => 'required_if:report_type,weekly|numeric|gte:1|lte:4',
-            'report_type' => 'required|string|in:weekly,monthly,annually|string'
+            'month' =>
+                'required_if:report_type,monthly|nullable|numeric|gte:1|lte:12',
+            'week' => 'nullable|numeric|gte:1|lte:4',
+            'report_type' => 'required|in:weekly,monthly,annually'
         ];
     }
 }

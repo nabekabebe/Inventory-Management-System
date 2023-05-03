@@ -19,7 +19,7 @@ class CategoryController extends Controller
     {
         $this->middleware(ManagerOnly::class)->except('index');
     }
-    private function getCategory(int $id)
+    private function getCategory(string $id)
     {
         return Category::firstWhere([
             'id' => $id,
@@ -34,7 +34,8 @@ class CategoryController extends Controller
     public function index()
     {
         return $this->success(
-            Category::where(['owner_token' => $this->userToken()])->get()
+            Category::where(['owner_token' => $this->userToken()])->get(),
+            withCount: true
         );
     }
 
@@ -59,10 +60,10 @@ class CategoryController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  int  $id
+     * @param  string  $id
      * @return JsonResponse
      */
-    public function show(int $id)
+    public function show(string $id)
     {
         $category = Category::firstWhere([
             'id' => $id,

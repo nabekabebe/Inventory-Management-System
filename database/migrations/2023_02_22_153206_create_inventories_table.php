@@ -16,12 +16,11 @@ return new class extends Migration {
     public function up()
     {
         Schema::create('inventories', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
+            $table->timestamps();
             $table->string('name');
             $table->string('identifier')->unique();
             $table->string('description');
-            $table->timestamps();
-            $table->integer('quantity');
             $table
                 ->string('barcode')
                 ->unique()
@@ -31,9 +30,8 @@ return new class extends Migration {
             $table->integer('purchase_price');
             $table->integer('sell_price');
             $table->string('owner_token');
-            $table->integer('low_stock_trigger')->default(10);
             $table
-                ->foreignIdFor(Category::class)
+                ->foreignUuid('category_id')
                 ->constrained()
                 ->cascadeOnDelete();
             $table->index('owner_token');

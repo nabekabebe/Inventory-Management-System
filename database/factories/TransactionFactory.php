@@ -23,7 +23,6 @@ class TransactionFactory extends Factory
         return [
             'comment' => fake()->sentence(),
             'payment_method' => fake()->randomElement(['bank', 'cash']),
-            'created_at' => now(),
             'quantity' => rand(1, 5),
             'inventory_id' => Inventory::all()->random()->id,
             'warehouse_id' => Warehouse::all()->random()->id,

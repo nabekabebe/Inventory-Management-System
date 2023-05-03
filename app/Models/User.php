@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -11,7 +12,8 @@ class User extends Authenticatable
 {
     use HasFactory, HasApiTokens, Notifiable;
 
-    //    use HasUuids;
+    use HasUuids;
+    public $incrementing = false;
     protected $fillable = [
         'is_manager',
         'managing_token',

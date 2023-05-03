@@ -11,7 +11,6 @@ use App\Traits\AuthAccessControl;
 use App\Traits\HttpResponses;
 use DB;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class TransferController extends Controller
@@ -35,10 +34,16 @@ class TransferController extends Controller
                 ->with('from:id,name', 'to:id,name')
                 ->where('owner_token', $this->userToken())
                 ->filter(request(['limit', 'search', 'sort']))
-                ->get()
+                ->extract(request()->all(), [
+                    'created_at',
+                    'created_from',
+                    'created_until'
+                ])
+                ->get(),
+            withCount: true
         );
     }
-    private function getTransfer(int $id)
+    private function getTransfer(string $id)
     {
         return Transfer::where([
             'id' => $id,
@@ -101,8 +106,7 @@ class TransferController extends Controller
                 'destination_id' => $attributes['destination_id'],
                 'inventory_id' => $transfer['id'],
                 'quantity' => $transfer['quantity'],
-                'owner_token' => $this->userToken(),
-                'created_at' => now()
+                'owner_token' => $this->userToken()
             ]);
         }
         DB::commit();
@@ -131,10 +135,10 @@ class TransferController extends Controller
      * Update the specified resource in storage.
      *
      * @param UpdateTransferRequest $request
-     * @param int $id
+     * @param string $id
      * @return JsonResponse
      */
-    public function update(UpdateTransferRequest $request, $id)
+    public function update(UpdateTransferRequest $request, string $id)
     {
         $attributes = $request->validated();
         $amount = $attributes['quantity'];

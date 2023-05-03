@@ -15,15 +15,17 @@ return new class extends Migration {
     public function up()
     {
         Schema::create('warehouse_infos', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->timestamps();
+            $table->integer('sell_count')->default(0);
+            $table->integer('refund_count')->default(0);
             $table->integer('quantity');
             $table
-                ->foreignIdFor(Warehouse::class)
+                ->foreignUuid('warehouse_id')
                 ->constrained()
                 ->cascadeOnDelete();
             $table
-                ->foreignIdFor(Inventory::class)
+                ->foreignUuid('inventory_id')
                 ->constrained()
                 ->cascadeOnDelete();
         });

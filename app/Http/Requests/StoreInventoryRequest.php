@@ -28,13 +28,11 @@ class StoreInventoryRequest extends FormRequest
             'description' => 'required|string',
             'barcode' => 'required|string|unique:inventories',
             'purchase_price' => 'required|numeric',
-            'variation.*.quantity' => 'numeric',
-            'variation.*.size' => 'string',
-            'variation.*.color' => 'json',
+            'variation' => 'json',
             'brand' => 'string',
             'manufacturer' => 'string',
             'sell_price' => 'required|numeric',
-            'quantity' => 'required|numeric',
+            'image' => 'image|nullable|max:2048',
             'category_id' =>
                 'required|exists:categories,id,owner_token,' .
                 Auth()->user()->managing_token,
