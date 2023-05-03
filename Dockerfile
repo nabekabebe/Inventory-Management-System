@@ -1,4 +1,4 @@
-FROM laravelphp/sail:8.2-1.0
+FROM laravelphp/sail:latest
 
 COPY . /var/www/html
 
@@ -6,7 +6,7 @@ USER root
 
 RUN apt-get update && apt-get install -y postgresql
 
-USER sail
+USER root
 
 RUN composer install --ignore-platform-reqs
 
